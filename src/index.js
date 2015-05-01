@@ -9,12 +9,19 @@ export default class captureVisibleTabFull {
         let {contentFullSize, maxIndexSize, devicePixelRatio} = await this._sendMessage({'type': 'ready'});
         let canvas = this._makeCanvas({contentFullSize, devicePixelRatio});
         let context = canvas.getContext('2d');
-        await* Array(maxIndexSize).join(',').split(',').map(async (_, index) => {
-            let {top, left} = await this._sendMessage({'type': 'doScroll', index});
-            let dataURI = await this._doCapture();
-            let image = await this._loadImage(dataURI);
-            context.drawImage(image, left, top);
-        });
+        await Array(maxIndexSize).join(',').split(',').reduce((base, _, index) => {
+            let position = {};
+            return base.then(() => {
+                return this._sendMessage({'type': 'doScroll', index});
+            }).then(({top, left}) => {
+                position = {top, left};
+                return this._sleep(150);
+            }).then(() => {
+                return this._doCapture();
+            }).then((dataURI) => {
+                return this._drawImage({context, dataURI, left: position['left'], top: position['top']});
+            });
+        }, Promise.resolve());
         await this._sendMessage({'type': 'done'});
         return canvas;
     }
@@ -46,11 +53,17 @@ export default class captureVisibleTabFull {
             chrome.tabs.captureVisibleTab(null, param, resolve);
         })
     }
-    _loadImage(dataURI) {
+    _sleep(msec) {
+        return new Promise((resolve) => setTimeout(resolve, msec));
+    }
+    _drawImage({context, dataURI, left, top}) {
         return new Promise((resolve) => {
             console.assert('string' === typeof dataURI);
             let image = new Image();
-            image.addEventListener('load', () => resolve(image));
+            image.addEventListener('load', () => {
+                context.drawImage(image, left, top);
+                resolve();
+            });
             image.src = dataURI;
         })
     }
@@ -128,15 +141,14 @@ function contentScript () {
 
             this.originalOverflow = this.global.document.documentElement.style.overflow;
         }
-        initialize() {
-            this.global.document.documentElement.style.overflow = 'hidden';
-        }
         doScroll(index) {
             let scope = this.scopes[index];
             if (!scope) {
                 return;
             }
+            this.global.document.documentElement.style.overflow = this.originalOverflow;
             this.global.scrollTo(scope[0], scope[1]);
+            this.global.document.documentElement.style.overflow = 'hidden';
             return scope;
         }
         getContentFullSize() {
@@ -167,7 +179,6 @@ function contentScript () {
         ready({request}) {
             this.context = {};
             this.context.scroller = new Scroller({global});
-            this.context.scroller.initialize();
             return {
                 'type': 'Initialized',
                 'contentFullSize': this.context.scroller.getContentFullSize(),
@@ -192,7 +203,6 @@ function contentScript () {
     };
 
     function onMessage (request) {
-        console.log(request);
         let type = request['type'];
         if (TypeCommands[type]) {
             return TypeCommands[type]({request});

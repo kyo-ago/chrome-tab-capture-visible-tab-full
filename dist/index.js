@@ -5241,38 +5241,22 @@ var captureVisibleTabFull = (function () {
                         canvas = this._makeCanvas({ contentFullSize: contentFullSize, devicePixelRatio: devicePixelRatio });
                         context = canvas.getContext('2d');
                         context$2$0.next = 12;
-                        return _Promise2['default'].all(Array(maxIndexSize).join(',').split(',').map(function callee$2$0(_, index) {
-                            var _ref3, top, left, dataURI, image;
+                        return Array(maxIndexSize).join(',').split(',').reduce(function (base, _, index) {
+                            var position = {};
+                            return base.then(function () {
+                                return _this._sendMessage({ type: 'doScroll', index: index });
+                            }).then(function (_ref3) {
+                                var top = _ref3.top;
+                                var left = _ref3.left;
 
-                            return regeneratorRuntime.async(function callee$2$0$(context$3$0) {
-                                while (1) switch (context$3$0.prev = context$3$0.next) {
-                                    case 0:
-                                        context$3$0.next = 2;
-                                        return this._sendMessage({ type: 'doScroll', index: index });
-
-                                    case 2:
-                                        _ref3 = context$3$0.sent;
-                                        top = _ref3.top;
-                                        left = _ref3.left;
-                                        context$3$0.next = 7;
-                                        return this._doCapture();
-
-                                    case 7:
-                                        dataURI = context$3$0.sent;
-                                        context$3$0.next = 10;
-                                        return this._loadImage(dataURI);
-
-                                    case 10:
-                                        image = context$3$0.sent;
-
-                                        context.drawImage(image, left, top);
-
-                                    case 12:
-                                    case 'end':
-                                        return context$3$0.stop();
-                                }
-                            }, null, _this);
-                        }));
+                                position = { top: top, left: left };
+                                return _this._sleep(150);
+                            }).then(function () {
+                                return _this._doCapture();
+                            }).then(function (dataURI) {
+                                return _this._drawImage({ context: context, dataURI: dataURI, left: position.left, top: position.top });
+                            });
+                        }, _Promise2['default'].resolve());
 
                     case 12:
                         context$2$0.next = 14;
@@ -5335,13 +5319,26 @@ var captureVisibleTabFull = (function () {
             });
         }
     }, {
-        key: '_loadImage',
-        value: function _loadImage(dataURI) {
+        key: '_sleep',
+        value: function _sleep(msec) {
+            return new _Promise2['default'](function (resolve) {
+                return setTimeout(resolve, msec);
+            });
+        }
+    }, {
+        key: '_drawImage',
+        value: function _drawImage(_ref5) {
+            var context = _ref5.context;
+            var dataURI = _ref5.dataURI;
+            var left = _ref5.left;
+            var top = _ref5.top;
+
             return new _Promise2['default'](function (resolve) {
                 console.assert('string' === typeof dataURI);
                 var image = new Image();
                 image.addEventListener('load', function () {
-                    return resolve(image);
+                    context.drawImage(image, left, top);
+                    resolve();
                 });
                 image.src = dataURI;
             });
@@ -5371,8 +5368,8 @@ function contentScript() {
     })();
 
     var BasePosition = (function () {
-        function BasePosition(_ref5) {
-            var global = _ref5.global;
+        function BasePosition(_ref6) {
+            var global = _ref6.global;
 
             _classCallCheck(this, BasePosition);
 
@@ -5396,10 +5393,10 @@ function contentScript() {
     })();
 
     var ContentSize = (function () {
-        function ContentSize(_ref6) {
-            var global = _ref6.global;
-            var _ref6$padding = _ref6.padding;
-            var padding = _ref6$padding === undefined ? 200 : _ref6$padding;
+        function ContentSize(_ref7) {
+            var global = _ref7.global;
+            var _ref7$padding = _ref7.padding;
+            var padding = _ref7$padding === undefined ? 200 : _ref7$padding;
 
             _classCallCheck(this, ContentSize);
 
@@ -5448,8 +5445,8 @@ function contentScript() {
     })();
 
     var Scroller = (function () {
-        function Scroller(_ref7) {
-            var global = _ref7.global;
+        function Scroller(_ref8) {
+            var global = _ref8.global;
 
             _classCallCheck(this, Scroller);
 
@@ -5466,18 +5463,15 @@ function contentScript() {
         }
 
         _createClass(Scroller, [{
-            key: 'initialize',
-            value: function initialize() {
-                this.global.document.documentElement.style.overflow = 'hidden';
-            }
-        }, {
             key: 'doScroll',
             value: function doScroll(index) {
                 var scope = this.scopes[index];
                 if (!scope) {
                     return;
                 }
+                this.global.document.documentElement.style.overflow = this.originalOverflow;
                 this.global.scrollTo(scope[0], scope[1]);
+                this.global.document.documentElement.style.overflow = 'hidden';
                 return scope;
             }
         }, {
@@ -5512,12 +5506,11 @@ function contentScript() {
     var global = 'undefined' !== typeof window ? window : 'undefined' !== typeof global ? global : 'undefined' !== typeof self ? self : {};
     var TypeCommands = {
         context: {},
-        ready: function ready(_ref8) {
-            var request = _ref8.request;
+        ready: function ready(_ref9) {
+            var request = _ref9.request;
 
             this.context = {};
             this.context.scroller = new Scroller({ global: global });
-            this.context.scroller.initialize();
             return {
                 type: 'Initialized',
                 contentFullSize: this.context.scroller.getContentFullSize(),
@@ -5525,8 +5518,8 @@ function contentScript() {
                 devicePixelRatio: global.devicePixelRatio || 1
             };
         },
-        doScroll: function doScroll(_ref9) {
-            var request = _ref9.request;
+        doScroll: function doScroll(_ref10) {
+            var request = _ref10.request;
             var index = request.index;
 
             var result = this.context.scroller.doScroll(index);
@@ -5537,8 +5530,8 @@ function contentScript() {
                 top: result[1]
             };
         },
-        done: function done(_ref10) {
-            var request = _ref10.request;
+        done: function done(_ref11) {
+            var request = _ref11.request;
 
             this.context.scroller.destroy();
             this.context = {};
@@ -5546,7 +5539,6 @@ function contentScript() {
     };
 
     function onMessage(request) {
-        console.log(request);
         var type = request.type;
         if (TypeCommands[type]) {
             return TypeCommands[type]({ request: request });
