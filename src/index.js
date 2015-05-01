@@ -1,4 +1,3 @@
-import 'babel-core/polyfill';
 import Promise from 'bluebird';
 
 export default class captureVisibleTabFull {
@@ -7,70 +6,49 @@ export default class captureVisibleTabFull {
     }
     async capture() {
         await this._loadContentScript();
-        let port = chrome.runtime.connect({name: `scroller_${this.tab.id}`});
-        let {contentFullSize, maxIndexSize, devicePixelRatio} = await this._connect({port});
-        let canvas = this._makeCanvas(contentFullSize, devicePixelRatio);
-        Array(maxIndexSize).join(',').split(',').map(async (_, index) => {
-            let {top, left} = await this._doScroll({port, index});
+        let {contentFullSize, maxIndexSize, devicePixelRatio} = await this._sendMessage({'type': 'ready'});
+        let canvas = this._makeCanvas({contentFullSize, devicePixelRatio});
+        let context = canvas.getContext('2d');
+        await* Array(maxIndexSize).join(',').split(',').map(async (_, index) => {
+            let {top, left} = await this._sendMessage({'type': 'doScroll', index});
             let dataURI = await this._doCapture();
             let image = await this._loadImage(dataURI);
-            canvas.getContext('2d').drawImage(image, left, top);
+            context.drawImage(image, left, top);
         });
+        await this._sendMessage({'type': 'done'});
         return canvas;
     }
-    _makeCanvas({width, height, scale}) {
+    _sendMessage(message) {
+        return new Promise((resolve, reject) => {
+            chrome.tabs.executeScript(this.tab.id, {
+                'code': 'onMessage(' + JSON.stringify(message) + ');'
+            }, (result) => resolve(result[0]));
+        });
+    }
+    _makeCanvas({contentFullSize, devicePixelRatio}) {
         let canvas = document.createElement('canvas');
-        canvas.width = width / scale;
-        canvas.height = height / scale;
+        canvas.width = Math.ceil(contentFullSize.width / devicePixelRatio);
+        canvas.height = Math.ceil(contentFullSize.height / devicePixelRatio);
         return canvas;
     }
     _loadContentScript() {
+        let code = contentScript.toString().replace(/^function\s+[\w\$]+\s*\(\)\s*\{([\s\S]+)\}$/, '$1')
         return new Promise((resolve, reject) => {
-            chrome.tabs.executeScript(this.tab.id, {
-                'code': `(${contentScript.toString()})(${this.tab.id});`
-            }, () => resolve());
-        });
-    }
-    _connect({port}) {
-        return new Promise((resolve, reject) => {
-            let onMessage = ({type, contentFullSize, maxIndexSize, devicePixelRatio}) => {
-                if (type !== 'Initialized') {
-                    return;
-                }
-                port.onMessage.removeListener(onMessage);
-                resolve({contentFullSize, maxIndexSize, devicePixelRatio});
-            }
-            port.onMessage.addListener(onMessage);
-        });
-    }
-    _doScroll({port, index}) {
-        return new Promise((resolve, reject) => {
-            let onMessage = ({type, top, left}) => {
-                if (type !== 'ScrollResult') {
-                    return;
-                }
-                port.onMessage.removeListener(onMessage);
-                resolve({top, left});
-            }
-            port.onMessage.addListener(onMessage);
-            port.postMessage({
-                'type': 'doScroll',
-                index
-            })
+            chrome.tabs.executeScript(this.tab.id, { code }, () => resolve());
         });
     }
     _doCapture() {
-        let param = {
-            'format': 'png',
-            'quality': 100
-        };
         return new Promise((resolve) => {
+            let param = {
+                'format': 'png',
+                'quality': 100
+            };
             chrome.tabs.captureVisibleTab(null, param, resolve);
         })
     }
     _loadImage(dataURI) {
         return new Promise((resolve) => {
-            console.assert(dataURI);
+            console.assert('string' === typeof dataURI);
             let image = new Image();
             image.addEventListener('load', () => resolve(image));
             image.src = dataURI;
@@ -78,7 +56,11 @@ export default class captureVisibleTabFull {
     }
 }
 
-export function contentScript (tabId) {
+function contentScript () {
+    var _classCallCheck = function (instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError('Cannot call a class as a function'); } };
+
+    var _createClass = (function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ('value' in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; })();
+
     class BasePosition {
         constructor({global}) {
             this.global = global;
@@ -134,8 +116,7 @@ export function contentScript (tabId) {
         }
     }
     class Scroller {
-        constructor({global, port}) {
-            this.port = port;
+        constructor({global}) {
             this.global = global;
 
             this.basePosition = new BasePosition({global});
@@ -175,51 +156,46 @@ export function contentScript (tabId) {
         }
     }
 
-    let global = getGlobal();
-    if (global.hasScreenCapturePage) {
-        return;
-    }
-    chrome.runtime.onConnect.addListener(onConnect);
-
-    function onConnect (port) {
-        if (port.name !== `scroller_${tabId}`) {
-            return;
-        }
-        let scroller = new Scroller({global, port});
-        scroller.initialize();
-        port.onMessage.addListener(({type, index}) => {
-            console.assert(type === 'doScroll');
-            let result = scroller.doScroll(index);
+    let global = (
+          "undefined" !== typeof window ? window
+        : "undefined" !== typeof global ? global
+        : "undefined" !== typeof self ? self
+        : {}
+    );
+    let TypeCommands = {
+        'context': {},
+        ready({request}) {
+            this.context = {};
+            this.context.scroller = new Scroller({global});
+            this.context.scroller.initialize();
+            return {
+                'type': 'Initialized',
+                'contentFullSize': this.context.scroller.getContentFullSize(),
+                'maxIndexSize': this.context.scroller.getScopeSize(),
+                'devicePixelRatio': global.devicePixelRatio || 1
+            };
+        },
+        doScroll({request}) {
+            let {index} = request;
+            let result = this.context.scroller.doScroll(index);
             console.assert(Array.isArray(result));
-            port.postMessage({
+            return {
                 'type': 'ScrollResult',
                 'left': result[0],
                 'top': result[1]
-            });
-        });
-        port.postMessage({
-            'type': 'Initialized',
-            'contentFullSize': scroller.getContentFullSize(),
-            'maxIndexSize': scroller.getScopeSize(),
-            'devicePixelRatio': global.devicePixelRatio || 1
-        });
-        port.onDisconnect(() => scroller.destroy());
-    }
-
-    function getGlobal () {
-        return (
-              "undefined" !== typeof window ? window
-            : "undefined" !== typeof global ? global
-            : "undefined" !== typeof self ? self
-            : {}
-        );
-    }
-
-    return {
-        getGlobal,
-        onConnect,
-        Scroller,
-        ContentSize,
-        BasePosition
+            };
+        },
+        done({request}) {
+            this.context.scroller.destroy();
+            this.context = {};
+        }
     };
+
+    function onMessage (request) {
+        console.log(request);
+        let type = request['type'];
+        if (TypeCommands[type]) {
+            return TypeCommands[type]({request});
+        }
+    }
 }

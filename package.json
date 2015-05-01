@@ -1,5 +1,6 @@
 {
   "name": "chrome-tab-captureVisibleTab-full",
+  "description": "Get the full size capture at chrome.tabs.captureVisibleTab.",
   "version": "0.0.1",
   "author": "@kyo-ago",
   "browserify": {
@@ -13,13 +14,12 @@
     ]
   },
   "dependencies": {
-    "babel-core": "^5.1.13",
     "bluebird": "^2.9.24"
   },
   "devDependencies": {
     "babel-plugin-espower": "^0.2.2",
     "babelify": "^6.0.2",
-    "browserify": "^9.0.8",
+    "browserify": "^10.0.0",
     "david": "^6.1.6",
     "fixpack": "^2.2.0",
     "mocha": "^2.2.4",
@@ -34,6 +34,10 @@
   "license": "MIT",
   "main": "dist/index.js",
   "mainSrc": "src/index.js",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/kyo-ago/chrome-tab-captureVisibleTab-full.git"
+  },
   "scripts": {
     "build": "browserify $npm_package_mainSrc -o $npm_package_main",
     "clean": "rm -fr node_modules dist/*",
