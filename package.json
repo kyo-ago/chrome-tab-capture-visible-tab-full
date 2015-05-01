@@ -1,7 +1,7 @@
 {
   "name": "chrome-tab-captureVisibleTab-full",
   "description": "Get the full size capture at chrome.tabs.captureVisibleTab.",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "author": "@kyo-ago",
   "browserify": {
     "transform": [
