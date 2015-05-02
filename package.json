@@ -32,18 +32,15 @@
     "extension"
   ],
   "license": "MIT",
-  "main": "dist/index.js",
-  "mainSrc": "src/index.js",
+  "main": "src/index.js",
   "repository": {
     "type": "git",
     "url": "https://github.com/kyo-ago/chrome-tab-captureVisibleTab-full.git"
   },
   "scripts": {
-    "build": "browserify $npm_package_mainSrc -o $npm_package_main",
     "clean": "rm -fr node_modules dist/*",
-    "deploy": "npm run fix && npm run clean && npm install && npm run build && npm version patch",
+    "deploy": "npm run fix && npm run clean && npm install && npm run test && npm version patch",
     "fix": "fixpack && david",
-    "test": "mocha --require ./test/_base.js ./test/index.js",
-    "watch": "watchify $npm_package_mainSrc -o $npm_package_main -v"
+    "test": "mocha --require ./test/_base.js ./test/index.js"
   }
 }

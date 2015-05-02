@@ -7,19 +7,19 @@ export default class captureVisibleTabFull {
     async capture() {
         await this._loadContentScript();
         let {contentFullSize, maxIndexSize, devicePixelRatio} = await this._sendMessage({'type': 'ready'});
-        let canvas = this._makeCanvas({contentFullSize, devicePixelRatio});
+        this._setDevicePixelRatio(devicePixelRatio);
+        let canvas = this._makeCanvas({contentFullSize});
         let context = canvas.getContext('2d');
         await Array(maxIndexSize).join(',').split(',').reduce((base, _, index) => {
-            let position = {};
             return base.then(() => {
                 return this._sendMessage({'type': 'doScroll', index});
             }).then(({top, left}) => {
-                position = {top, left};
-                return this._sleep(150);
-            }).then(() => {
-                return this._doCapture();
-            }).then((dataURI) => {
-                return this._drawImage({context, dataURI, left: position['left'], top: position['top']});
+                return this._sleep(150).then(() => ({top, left}));
+            }).then(({top, left}) => {
+              console.log(top, left)
+                return this._doCapture().then((dataURI) => ({dataURI, top, left}));
+            }).then(({dataURI, top, left}) => {
+                return this._drawImage({context, dataURI, left, top});
             });
         }, Promise.resolve());
         await this._sendMessage({'type': 'done'});
@@ -32,10 +32,16 @@ export default class captureVisibleTabFull {
             }, (result) => resolve(result[0]));
         });
     }
-    _makeCanvas({contentFullSize, devicePixelRatio}) {
+    _setDevicePixelRatio(devicePixelRatio) {
+        this.devicePixelRatio = devicePixelRatio;
+    }
+    _changeScale(num) {
+        return Math.ceil(num / (1 / this.devicePixelRatio));
+    }
+    _makeCanvas({contentFullSize}) {
         let canvas = document.createElement('canvas');
-        canvas.width = Math.ceil(contentFullSize.width / devicePixelRatio);
-        canvas.height = Math.ceil(contentFullSize.height / devicePixelRatio);
+        canvas.width = this._changeScale(contentFullSize.width);
+        canvas.height = this._changeScale(contentFullSize.height);
         return canvas;
     }
     _loadContentScript() {
@@ -61,7 +67,11 @@ export default class captureVisibleTabFull {
             console.assert('string' === typeof dataURI);
             let image = new Image();
             image.addEventListener('load', () => {
-                context.drawImage(image, left, top);
+                context.drawImage(
+                    image,
+                    this._changeScale(left),
+                    this._changeScale(top)
+                );
                 resolve();
             });
             image.src = dataURI;
@@ -149,7 +159,7 @@ function contentScript () {
             this.global.document.documentElement.style.overflow = this.originalOverflow;
             this.global.scrollTo(scope[0], scope[1]);
             this.global.document.documentElement.style.overflow = 'hidden';
-            return scope;
+            return [this.global.scrollX, this.global.scrollY];
         }
         getContentFullSize() {
             let {width, height} = this.contentFullSize;
