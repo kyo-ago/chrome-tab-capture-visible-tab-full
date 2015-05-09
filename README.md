@@ -7,8 +7,8 @@ Usase
 -------
 
 	require('babel-core/polyfill');
-	var captureVisibleTabFull = new CaptureVisibleTabFull(tab);
-	captureVisibleTabFull.capture().then(function (canvas) {
+	var captureVisibleTabFull = new CaptureVisibleTabFull();
+	captureVisibleTabFull.capture({tab}).then(function (canvas) {
 		canvas.toDataURL();
 	});
 

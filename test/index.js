@@ -7,9 +7,12 @@ describe('captureVisibleTabFull', () => {
             'id': 1
         }
     };
-    let captureVisibleTabFull = new CaptureVisibleTabFull(dummyTab);
+    let captureVisibleTabFull = new CaptureVisibleTabFull();
 
     it('capture', () => {
-        captureVisibleTabFull.capture();
+        let result = captureVisibleTabFull.capture({
+          'tab': dummyTab
+        });
+        assert(result instanceof Promise);
     });
 });

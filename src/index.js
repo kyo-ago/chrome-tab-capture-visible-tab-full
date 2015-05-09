@@ -1,35 +1,29 @@
 import Promise from 'bluebird';
 
 export default class captureVisibleTabFull {
-    constructor({tab}) {
-        this.tab = tab;
-    }
-    async capture() {
-        await this._loadContentScript();
-        let {contentFullSize, maxIndexSize, devicePixelRatio} = await this._sendMessage({'type': 'ready'});
+    async capture({tab}) {
+        await this._loadContentScript(tab);
+        let {contentFullSize, maxIndexSize, devicePixelRatio} = await this._sendMessage(tab, {'type': 'ready'});
         this._setDevicePixelRatio(devicePixelRatio);
         let canvas = this._makeCanvas({contentFullSize});
         let context = canvas.getContext('2d');
         await Array(maxIndexSize).join(',').split(',').reduce((base, _, index) => {
             return base.then(() => {
-                return this._sendMessage({'type': 'doScroll', index});
+                return this._sendMessage(tab, {'type': 'doScroll', index});
             }).then(({top, left}) => {
                 return this._sleep(150).then(() => ({top, left}));
             }).then(({top, left}) => {
-              console.log(top, left)
-                return this._doCapture().then((dataURI) => ({dataURI, top, left}));
+                return this._doCapture(tab).then((dataURI) => ({dataURI, top, left}));
             }).then(({dataURI, top, left}) => {
                 return this._drawImage({context, dataURI, left, top});
             });
         }, Promise.resolve());
-        await this._sendMessage({'type': 'done'});
+        await this._sendMessage(tab, {'type': 'done'});
         return canvas;
     }
-    _sendMessage(message) {
+    _sendMessage(tab, message) {
         return new Promise((resolve, reject) => {
-            chrome.tabs.executeScript(this.tab.id, {
-                'code': 'onMessage(' + JSON.stringify(message) + ');'
-            }, (result) => resolve(result[0]));
+            chrome.tabs.sendMessage(tab.id, message, (result) => resolve(result));
         });
     }
     _setDevicePixelRatio(devicePixelRatio) {
@@ -44,19 +38,19 @@ export default class captureVisibleTabFull {
         canvas.height = this._changeScale(contentFullSize.height);
         return canvas;
     }
-    _loadContentScript() {
-        let code = contentScript.toString().replace(/^function\s+[\w\$]+\s*\(\)\s*\{([\s\S]+)\}$/, '$1')
+    _loadContentScript(tab) {
+        let code = '(' + contentScript.toString() + ')();';
         return new Promise((resolve, reject) => {
-            chrome.tabs.executeScript(this.tab.id, { code }, () => resolve());
+            chrome.tabs.executeScript(tab.id, { code }, () => resolve());
         });
     }
-    _doCapture() {
+    _doCapture(tab) {
         return new Promise((resolve) => {
             let param = {
                 'format': 'png',
                 'quality': 100
             };
-            chrome.tabs.captureVisibleTab(null, param, resolve);
+            chrome.tabs.captureVisibleTab(tab.windowId, param, resolve);
         })
     }
     _sleep(msec) {
@@ -179,10 +173,10 @@ function contentScript () {
     }
 
     let global = (
-          "undefined" !== typeof window ? window
-        : "undefined" !== typeof global ? global
-        : "undefined" !== typeof self ? self
-        : {}
+        "undefined" !== typeof window ? window
+            : "undefined" !== typeof global ? global
+            : "undefined" !== typeof self ? self
+            : {}
     );
     let TypeCommands = {
         'context': {},
@@ -218,4 +212,7 @@ function contentScript () {
             return TypeCommands[type]({request});
         }
     }
+    chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
+        sendResponse(onMessage(request));
+    });
 }
