@@ -1,5 +1,5 @@
 {
-  "name": "chrome-tab-captureVisibleTab-full",
+  "name": "chrome-tab-capture-visible-tab-full",
   "description": "Get the full size capture at chrome.tabs.captureVisibleTab.",
   "version": "0.0.5",
   "author": "@kyo-ago",
@@ -35,10 +35,10 @@
   "main": "src/index.js",
   "repository": {
     "type": "git",
-    "url": "https://github.com/kyo-ago/chrome-tab-captureVisibleTab-full.git"
+    "url": "https://github.com/kyo-ago/chrome-tab-capture-visible-tab-full.git"
   },
   "scripts": {
-    "clean": "rm -fr node_modules dist/*",
+    "clean": "rm -fr node_modules",
     "deploy": "npm run fix && npm run clean && npm install && npm run test && npm version patch",
     "fix": "fixpack && david",
     "test": "mocha --require ./test/_base.js ./test/index.js"
