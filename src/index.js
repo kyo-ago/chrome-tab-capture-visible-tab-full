@@ -1,10 +1,13 @@
 import Promise from 'bluebird';
 
 export default class captureVisibleTabFull {
+    constructor({overWriteDevicePixelRatio}) {
+        this.overWriteDevicePixelRatio = overWriteDevicePixelRatio;
+    }
     async capture({tab}) {
         await this._loadContentScript(tab);
         let {contentFullSize, maxIndexSize, devicePixelRatio} = await this._sendMessage(tab, {'type': 'ready'});
-        this._setDevicePixelRatio(devicePixelRatio);
+        this._setDevicePixelRatio(this.overWriteDevicePixelRatio || devicePixelRatio);
         let canvas = this._makeCanvas({contentFullSize});
         let context = canvas.getContext('2d');
         await Array(maxIndexSize).join(',').split(',').reduce((base, _, index) => {
