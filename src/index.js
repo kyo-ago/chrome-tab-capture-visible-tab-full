@@ -38,9 +38,11 @@ export default class captureVisibleTabFull {
         canvas.height = this._changeScale(contentFullSize.height);
         return canvas;
     }
+    _getContentScriptCode() {
+        return '(' + contentScript.toString().replace('{', '{' + babelCare) + ')();';
+    }
     _loadContentScript(tab) {
-
-        let code = '(' + babelCare + contentScript.toString() + ')();';
+        let code = this._getContentScriptCode();
         return new Promise((resolve, reject) => {
             chrome.tabs.executeScript(tab.id, { code }, () => resolve());
         });
@@ -158,13 +160,10 @@ function contentScript () {
         }
         getContentFullSize() {
             let {width, height} = this.contentFullSize;
-            console.assert(Number.isSafeInteger(width));
-            console.assert(Number.isSafeInteger(height));
             return {width, height};
         }
         getScopeSize() {
             let length = this.scopes.length;
-            console.assert(Number.isSafeInteger(length));
             return length;
         }
         destroy() {
@@ -194,7 +193,6 @@ function contentScript () {
         doScroll({request}) {
             let {index} = request;
             let result = this.context.scroller.doScroll(index);
-            console.assert(Array.isArray(result));
             return {
                 'type': 'ScrollResult',
                 'left': result[0],

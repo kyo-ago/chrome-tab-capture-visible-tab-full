@@ -11,8 +11,18 @@ describe('captureVisibleTabFull', () => {
 
     it('capture', () => {
         let result = captureVisibleTabFull.capture({
-          'tab': dummyTab
+            'tab': dummyTab
         });
         assert(result instanceof Promise);
+    });
+
+    it('execute', () => {
+        let code = captureVisibleTabFull._getContentScriptCode();
+        try {
+            eval(code);
+            assert(true);
+        } catch (e) {
+            assert(e.message === 'chrome is not defined');
+        }
     });
 });
