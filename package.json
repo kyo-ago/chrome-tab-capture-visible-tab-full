@@ -17,7 +17,8 @@
     "bluebird": "^2.9.24"
   },
   "devDependencies": {
-    "babel-plugin-espower": "^0.3.0",
+    "babel-core": "^5.5.6",
+    "babel-plugin-espower": "^1.0.0",
     "babelify": "^6.0.2",
     "browserify": "^10.0.0",
     "david": "^6.1.6",
