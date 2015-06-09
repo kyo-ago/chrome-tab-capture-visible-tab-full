@@ -1,13 +1,10 @@
 import Promise from 'bluebird';
 
 export default class captureVisibleTabFull {
-    constructor({overWriteDevicePixelRatio}) {
-        this.overWriteDevicePixelRatio = overWriteDevicePixelRatio;
-    }
     async capture({tab}) {
         await this._loadContentScript(tab);
         let {contentFullSize, maxIndexSize, devicePixelRatio} = await this._sendMessage(tab, {'type': 'ready'});
-        this._setDevicePixelRatio(this.overWriteDevicePixelRatio || devicePixelRatio);
+        this._setDevicePixelRatio(devicePixelRatio);
         let canvas = this._makeCanvas({contentFullSize});
         let context = canvas.getContext('2d');
         await Array(maxIndexSize).join(',').split(',').reduce((base, _, index) => {
@@ -42,7 +39,8 @@ export default class captureVisibleTabFull {
         return canvas;
     }
     _loadContentScript(tab) {
-        let code = '(' + contentScript.toString() + ')();';
+
+        let code = '(' + babelCare + contentScript.toString() + ')();';
         return new Promise((resolve, reject) => {
             chrome.tabs.executeScript(tab.id, { code }, () => resolve());
         });
@@ -76,11 +74,11 @@ export default class captureVisibleTabFull {
     }
 }
 
+let babelCare = `
+var _classCallCheck = function (instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError('Cannot call a class as a function'); } };
+var _createClass = (function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ('value' in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; })();
+`;
 function contentScript () {
-    var _classCallCheck = function (instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError('Cannot call a class as a function'); } };
-
-    var _createClass = (function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ('value' in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; })();
-
     class BasePosition {
         constructor({global}) {
             this.global = global;
