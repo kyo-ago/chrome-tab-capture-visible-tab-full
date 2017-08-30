@@ -1,6 +1,8 @@
 chrome.tab.captureVisibleTab full
 =======
 
+[![Greenkeeper badge](https://badges.greenkeeper.io/kyo-ago/chrome-tab-capture-visible-tab-full.svg)](https://greenkeeper.io/)
+
 Get the full size capture at chrome.tabs.captureVisibleTab.
 
 Usase
