@@ -3,7 +3,7 @@ chrome.tab.captureVisibleTab full
 
 Get the full size capture at chrome.tabs.captureVisibleTab.
 
-Usase
+Usage
 -------
 
 	require('babel-core/polyfill');
