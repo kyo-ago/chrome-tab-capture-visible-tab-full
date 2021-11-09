@@ -1,5 +1,3 @@
-import Promise from 'bluebird';
-
 export default class captureVisibleTabFull {
     async capture({tab}) {
         await this._loadContentScript(tab);
@@ -11,7 +9,7 @@ export default class captureVisibleTabFull {
             return base.then(() => {
                 return this._sendMessage(tab, {'type': 'doScroll', index});
             }).then(({top, left}) => {
-                return this._sleep(150).then(() => ({top, left}));
+                return this._sleep(300).then(() => ({top, left}));
             }).then(({top, left}) => {
                 return this._doCapture(tab).then((dataURI) => ({dataURI, top, left}));
             }).then(({dataURI, top, left}) => {
@@ -38,13 +36,14 @@ export default class captureVisibleTabFull {
         canvas.height = this._changeScale(contentFullSize.height);
         return canvas;
     }
-    _getContentScriptCode() {
-        return '(' + contentScript.toString().replace('{', '{' + babelCare) + ')();';
-    }
     _loadContentScript(tab) {
-        let code = this._getContentScriptCode();
         return new Promise((resolve, reject) => {
-            chrome.tabs.executeScript(tab.id, { code }, () => resolve());
+            chrome.scripting.executeScript(
+                {
+                  target: { tabId: tab.id },
+                  func: contentScript,
+                }, () => resolve()
+            );
         });
     }
     _doCapture(tab) {
@@ -59,11 +58,22 @@ export default class captureVisibleTabFull {
     _sleep(msec) {
         return new Promise((resolve) => setTimeout(resolve, msec));
     }
+    _dataURLToBlob(url) {
+        const byte = atob(url.split(',')[1]);
+        const mime = url.match(/:([a-z\/\-]+);/)[1];
+      
+        let buffer = new Uint8Array(byte.length);
+        for (let i = 0; i < byte.length; i++) {
+          buffer[i] = byte.charCodeAt(i);
+        }
+      
+        return new Blob([buffer], { type: mime });
+    }
     _drawImage({context, dataURI, left, top}) {
         return new Promise((resolve) => {
             console.assert('string' === typeof dataURI);
-            let image = new Image();
-            image.addEventListener('load', () => {
+            let blob = _dataURLToBlob(dataURI);
+            createImageBitmap(blob).then(image => {
                 context.drawImage(
                     image,
                     this._changeScale(left),
@@ -71,15 +81,10 @@ export default class captureVisibleTabFull {
                 );
                 resolve();
             });
-            image.src = dataURI;
         })
     }
 }
 
-let babelCare = `
-var _classCallCheck = function (instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError('Cannot call a class as a function'); } };
-var _createClass = (function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ('value' in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; })();
-`;
 function contentScript () {
     class BasePosition {
         constructor({global}) {
